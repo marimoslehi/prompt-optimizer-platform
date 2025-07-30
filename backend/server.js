@@ -6,6 +6,10 @@ require('dotenv').config();
 // Import database configuration
 const { initializeDatabase, closeDatabase } = require('./config/database');
 
+// Import AI services
+const openaiService = require('./services/openai');
+const anthropicService = require('./services/anthropic');
+
 const app = express();
 const PORT = process.env.PORT || 8000;
 
@@ -89,11 +93,7 @@ app.get('/api/models', (req, res) => {
     }
 });
 
-// Import AI services
-const openaiService = require('./services/openai');
-const anthropicService = require('./services/anthropic');
-
-// Prompt testing endpoint with real AI integration
+// Prompt testing endpoint with real AI integration - FIXED VERSION
 app.post('/api/prompts/test', async (req, res) => {
     try {
         const { prompt, models, iterations = 1, temperature = 0.7, maxTokens = 500 } = req.body;
@@ -148,19 +148,32 @@ app.post('/api/prompts/test', async (req, res) => {
             results.push(result);
         }
 
-        // Calculate summary statistics
+        // Calculate summary statistics - FIXED VERSION
         const successfulResults = results.filter(r => r.success);
         const failedResults = results.filter(r => !r.success);
+        
+        // Safe calculation of totals
+        const totalTokens = successfulResults.reduce((sum, r) => {
+            const tokens = r.metadata?.tokens?.total || 0;
+            return sum + tokens;
+        }, 0);
+        
+        const totalCostRaw = successfulResults.reduce((sum, r) => {
+            const cost = r.metadata?.cost?.total || 0;
+            return sum + parseFloat(cost);
+        }, 0);
+        
+        const avgResponseTime = successfulResults.length > 0 
+            ? Math.round(successfulResults.reduce((sum, r) => sum + (r.metadata?.responseTime || 0), 0) / successfulResults.length)
+            : 0;
         
         const summary = {
             totalModels: models.length,
             successfulModels: successfulResults.length,
             failedModels: failedResults.length,
-            totalTokens: successfulResults.reduce((sum, r) => sum + (r.metadata.tokens?.total || 0), 0),
-            totalCost: successfulResults.reduce((sum, r) => sum + (r.metadata.cost?.total || 0), 0).toFixed(6),
-            avgResponseTime: successfulResults.length > 0 
-                ? Math.round(successfulResults.reduce((sum, r) => sum + r.metadata.responseTime, 0) / successfulResults.length)
-                : 0
+            totalTokens: totalTokens,
+            totalCost: parseFloat(totalCostRaw.toFixed(6)),
+            avgResponseTime: avgResponseTime
         };
 
         res.json({
@@ -205,7 +218,7 @@ app.use((err, req, res, next) => {
     });
 });
 
-// 404 handler - Fixed routing issue
+// 404 handler
 app.use((req, res) => {
     res.status(404).json({
         success: false,
