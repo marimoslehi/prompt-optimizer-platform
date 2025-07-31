@@ -1,8 +1,12 @@
 const OpenAI = require('openai');
 
-// Initialize OpenAI client (only if API key exists)
+// Initialize OpenAI client (only if API key exists and is not mock)
 let openai = null;
-if (process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY !== 'mock_key_for_development') {
+const hasValidApiKey = process.env.OPENAI_API_KEY && 
+                      process.env.OPENAI_API_KEY !== 'mock_key_for_development' &&
+                      process.env.OPENAI_API_KEY.startsWith('sk-');
+
+if (hasValidApiKey) {
     openai = new OpenAI({
         apiKey: process.env.OPENAI_API_KEY
     });
