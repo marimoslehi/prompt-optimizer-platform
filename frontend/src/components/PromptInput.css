@@ -1,0 +1,63 @@
+/* frontend/src/components/PromptInput.css */
+.prompt-input-container {
+  margin-bottom: 2rem;
+}
+
+.prompt-input-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.prompt-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.template-selector {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.template-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.template-card {
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.template-card:hover {
+  border-color: var(--primary);
+  background: white;
+}
+
+.template-card.selected {
+  border-color: var(--primary);
+  background: white;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+}
+
+.prompt-tips {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: var(--bg-secondary);
+  border-radius: var(--radius);
+}
+
+.prompt-tips ul {
+  margin-left: 1rem;
+}
+
+.prompt-tips li {
+  margin-bottom: 0.5rem;
+}

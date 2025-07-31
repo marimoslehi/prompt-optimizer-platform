@@ -2,14 +2,16 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 
-// API Configuration
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+// Import our new components
+import PromptInput from './components/PromptInput';
+import ModelSelector from './components/ModelSelector';
+import TestResults from './components/TestResults';
+import apiService from './services/api';
 
 function App() {
   // State Management
   const [prompt, setPrompt] = useState('');
   const [selectedModels, setSelectedModels] = useState(['gpt-3.5-turbo']);
-  const [availableModels, setAvailableModels] = useState([]);
   const [testResults, setTestResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -19,30 +21,27 @@ function App() {
     successRate: 0,
     bestModel: '-'
   });
+  const [summary, setSummary] = useState({});
 
-  // Fetch available models on component mount
+  // Check backend connectivity on mount
   useEffect(() => {
-    fetchModels();
+    checkBackendConnection();
   }, []);
 
-  // API Functions
-  const fetchModels = async () => {
+  // Check if backend is accessible
+  const checkBackendConnection = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/models`);
-      const data = await response.json();
-      
-      if (data.success) {
-        setAvailableModels(data.models);
-      } else {
-        setError('Failed to load models');
+      const isAccessible = await apiService.isBackendAccessible();
+      if (!isAccessible) {
+        setError('Unable to connect to backend. Please ensure the server is running on port 8000.');
       }
     } catch (err) {
-      setError('Unable to connect to backend');
-      console.error('Error fetching models:', err);
+      setError('Backend connection check failed');
     }
   };
 
-  const runPromptTest = async () => {
+  // Handle prompt testing
+  const handlePromptTest = async () => {
     if (!prompt.trim()) {
       setError('Please enter a prompt');
       return;
@@ -57,35 +56,29 @@ function App() {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/prompts/test`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          prompt: prompt,
-          models: selectedModels,
-          temperature: 0.7,
-          maxTokens: 500
-        })
+      const response = await apiService.testPrompt({
+        prompt: prompt,
+        models: selectedModels,
+        temperature: 0.7,
+        maxTokens: 500
       });
 
-      const data = await response.json();
-      
-      if (data.success) {
-        setTestResults(data.results);
-        updateStats(data);
+      if (response.success) {
+        setTestResults(response.results);
+        setSummary(response.summary);
+        updateStats(response);
       } else {
-        setError(data.error || 'Test failed');
+        setError(response.error || 'Test failed');
       }
     } catch (err) {
-      setError('Failed to run test');
+      setError(apiService.formatError(err));
       console.error('Error running test:', err);
     } finally {
       setLoading(false);
     }
   };
 
+  // Update statistics after successful test
   const updateStats = (data) => {
     const successful = data.results.filter(r => r.success);
     const successRate = Math.round((successful.length / data.results.length) * 100);
@@ -100,6 +93,7 @@ function App() {
     }));
   };
 
+  // Handle model selection toggle
   const handleModelToggle = (modelId) => {
     setSelectedModels(prev => {
       if (prev.includes(modelId)) {
@@ -110,8 +104,15 @@ function App() {
     });
   };
 
-  const clearResults = () => {
+  // Clear results and reset state
+  const handleClearResults = () => {
     setTestResults([]);
+    setSummary({});
+    setError(null);
+  };
+
+  // Clear error messages
+  const clearError = () => {
     setError(null);
   };
 
@@ -129,91 +130,42 @@ function App() {
         </div>
       </header>
 
+      {/* Global Error Display */}
+      {error && (
+        <div className="global-error">
+          <div className="container">
+            <div className="error-message">
+              <span>❌ {error}</span>
+              <button onClick={clearError} className="error-close">
+                ✕
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
       <main className="app-main">
         <div className="container">
           <div className="main-grid">
             
-            {/* Left Column - Input & Controls */}
+            {/* Left Column - Input & Model Selection */}
             <div className="input-section">
-              <div className="card">
-                <h2>📝 Prompt Configuration</h2>
-                
-                {/* Prompt Input */}
-                <div className="form-group">
-                  <label htmlFor="prompt">Enter your prompt:</label>
-                  <textarea
-                    id="prompt"
-                    value={prompt}
-                    onChange={(e) => setPrompt(e.target.value)}
-                    placeholder="Write your prompt here... e.g., 'Explain quantum computing in simple terms'"
-                    rows={6}
-                    className="prompt-textarea"
-                  />
-                  <div className="input-info">
-                    <span className="char-count">{prompt.length} characters</span>
-                  </div>
-                </div>
+              {/* Prompt Input Component */}
+              <PromptInput
+                prompt={prompt}
+                setPrompt={setPrompt}
+                onTest={handlePromptTest}
+                loading={loading}
+                disabled={false}
+              />
 
-                {/* Model Selection */}
-                <div className="form-group">
-                  <label>Select Models to Test:</label>
-                  <div className="model-grid">
-                    {availableModels.map((model) => (
-                      <div key={model.id} className="model-checkbox">
-                        <input
-                          type="checkbox"
-                          id={model.id}
-                          checked={selectedModels.includes(model.id)}
-                          onChange={() => handleModelToggle(model.id)}
-                        />
-                        <label htmlFor={model.id} className="model-label">
-                          <span className="model-name">{model.name}</span>
-                          <span className="model-provider">{model.provider}</span>
-                          <span className="model-cost">
-                            ${model.costPer1kTokens}/1K tokens
-                          </span>
-                        </label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="button-group">
-                  <button
-                    onClick={runPromptTest}
-                    disabled={loading || !prompt.trim() || selectedModels.length === 0}
-                    className="btn btn-primary"
-                  >
-                    {loading ? (
-                      <>
-                        <span className="spinner"></span>
-                        Testing...
-                      </>
-                    ) : (
-                      <>
-                        🚀 Run Test
-                      </>
-                    )}
-                  </button>
-                  
-                  <button
-                    onClick={clearResults}
-                    className="btn btn-secondary"
-                    disabled={testResults.length === 0}
-                  >
-                    🗑️ Clear Results
-                  </button>
-                </div>
-
-                {/* Error Display */}
-                {error && (
-                  <div className="error-message">
-                    ❌ {error}
-                  </div>
-                )}
-              </div>
+              {/* Model Selection Component */}
+              <ModelSelector
+                selectedModels={selectedModels}
+                onModelToggle={handleModelToggle}
+                disabled={loading}
+              />
             </div>
 
             {/* Right Column - Stats & Info */}
@@ -244,51 +196,52 @@ function App() {
               <div className="card">
                 <h3>💡 Tips</h3>
                 <ul className="tips-list">
-                  <li>Start with simple prompts to test the system</li>
+                  <li>Use prompt templates for quick testing</li>
                   <li>Compare at least 2 models for best insights</li>
                   <li>GPT-3.5 is faster and cheaper for simple tasks</li>
                   <li>Claude excels at detailed analysis</li>
                   <li>Check response quality vs cost trade-offs</li>
+                  <li>Export results for future reference</li>
                 </ul>
+              </div>
+
+              {/* Backend Status */}
+              <div className="card">
+                <h3>🔧 System Status</h3>
+                <div className="status-grid">
+                  <div className="status-item">
+                    <span className="status-label">Backend:</span>
+                    <span className={`status-indicator ${error ? 'error' : 'success'}`}>
+                      {error ? '🔴 Disconnected' : '🟢 Connected'}
+                    </span>
+                  </div>
+                  <div className="status-item">
+                    <span className="status-label">Models:</span>
+                    <span className="status-indicator success">
+                      🟢 Available
+                    </span>
+                  </div>
+                </div>
+                {error && (
+                  <button 
+                    onClick={checkBackendConnection}
+                    className="btn btn-outline btn-sm"
+                  >
+                    🔄 Retry Connection
+                  </button>
+                )}
               </div>
             </div>
           </div>
 
-          {/* Results Section */}
-          {testResults.length > 0 && (
-            <div className="results-section">
-              <div className="card">
-                <h2>🎯 Test Results</h2>
-                <div className="results-grid">
-                  {testResults.map((result, index) => (
-                    <div key={index} className={`result-card ${result.success ? 'success' : 'error'}`}>
-                      <div className="result-header">
-                        <h3>{result.model}</h3>
-                        <span className="provider-badge">{result.provider}</span>
-                      </div>
-                      
-                      {result.success ? (
-                        <>
-                          <div className="result-response">
-                            {result.response}
-                          </div>
-                          <div className="result-meta">
-                            <span>⏱️ {result.metadata?.responseTime || 0}ms</span>
-                            <span>🔢 {result.metadata?.tokens?.total || 0} tokens</span>
-                            <span>💰 ${result.metadata?.cost?.total || 0}</span>
-                          </div>
-                        </>
-                      ) : (
-                        <div className="result-error">
-                          ❌ {result.error}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
+          {/* Test Results Component */}
+          <TestResults
+            results={testResults}
+            loading={loading}
+            onClear={handleClearResults}
+            testPrompt={prompt}
+            summary={summary}
+          />
         </div>
       </main>
     </div>
