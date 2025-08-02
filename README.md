@@ -1,2 +1,20 @@
-# prompt-optimizer-platform
-Compare and optimize AI prompts across multiple models (GPT-4, Claude, Gemini) with cost tracking and performance analytics.
+# ⚠️ MOVED
+
+This repository has been replaced by the improved version:
+
+## 👉 [New Prompt Optimizer](https://github.com/marimoslehi/prompt-optimizer)
+
+The new version includes:
+- ✅ Better UI/UX design
+- ✅ More features and functionality
+- ✅ Cleaner, more maintainable codebase
+- ✅ Active development and updates
+- ✅ Enterprise-ready features
+- ✅ Cost optimization analytics
+- ✅ Multi-model AI comparison
+
+Please use the new repository instead. This repository is no longer maintained.
+
+---
+
+**New Repository:** https://github.com/marimoslehi/prompt-optimizer
